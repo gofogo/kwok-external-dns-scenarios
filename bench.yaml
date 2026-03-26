@@ -1,0 +1,171 @@
+# Name of the KWOK cluster to create or reuse.
+cluster-name: ext-dns-bench
+
+# Delay inserted between iterations. Lets the system settle between calls so
+# back-to-back runs don't share in-flight cache state.
+# Accepts plain milliseconds (500), duration strings (500ms, 1s, 2s). Set to 0 to disable.
+pause-ms: 1s
+
+# Controls whether the cluster and fixtures are created on startup.
+#   false (default): creates the KWOK cluster and populates it with services, gateways,
+#                    and virtualservices using the counts in the selected scenario(s).
+#                    Idempotent — existing resources are skipped, but removed resources
+#                    are NOT deleted. To reset, set cleanup: true or delete the cluster manually.
+#   true:            skips cluster creation and fixture loading entirely; reuses whatever
+#                    is already in the cluster. Use on the second branch run to compare
+#                    the same dataset across branches.
+skip-setup: false
+
+# Set to true to append machine-readable results to <cluster-name>-results.txt after each scenario.
+# Useful for cross-branch comparison. Disabled by default to avoid accumulating stale files.
+save-results: false
+
+# Set to true to delete the cluster after the benchmark completes.
+# Note: skip-setup: false creates the cluster on each run (idempotent); cleanup: false keeps it alive after the run.
+cleanup:
+  enabled: false
+  onError: false  # Set to true to delete the cluster even if the benchmark encounters an error.
+
+# Artificial API server latency injected via embedded toxiproxy.
+# Accepts plain milliseconds (50) or a duration string (50ms, 1s).
+# Set to 0 to disable. Highlights the old List() call penalty vs cached indexer.
+latency-ms: 500ms
+
+# Jitter added on top of latency-ms (random ± value). Same format as latency-ms.
+jitter-ms: 100ms
+
+# Max number of attempts when polling for API server readiness after cluster creation.
+# Each attempt waits 2s; first half uses /readyz probe, second half uses cluster-info.
+wait-attempts: 10
+
+# Number of concurrent API requests during fixture creation (services, gateways, virtualservices).
+# Higher values speed up setup but increase API server load.
+concurrency: 300
+
+# In-process Prometheus metrics server and per-iteration scraping.
+metrics:
+  # Set to true to start the metrics server and capture external_dns_* metrics per iteration.
+  enabled: true
+  # Address for /healthz and /metrics endpoints.
+  url: http://localhost:7979/metrics
+
+# Benchmark scenarios. Each scenario defines a resource scale to benchmark.
+#
+# Run a specific scenario:   go run . --scenario istio-quick-smoke
+# Run all default scenarios: go run .   (scenarios with default: true)
+#
+# Source types:
+#   istio        — GatewaySource + VirtualServiceSource; resources: services, gateways, virtualservices.
+#                  The cluster is created with --service-cluster-ip-range=10.0.0.0/12 (~1M addresses).
+#   pod          — PodSource; resources: pods (annotated with external-dns hostname annotation).
+#   dnsendpoint  — CRDSource (kind: DNSEndpoint); resources: dnsendpoints.
+#   service      — ServiceSource; resources: services (mix of headless and node-port), nodes, pods.
+#
+# services and pods accept either a plain integer or a struct with count + distribution:
+#   services: 3                   # plain integer
+#   services:                     # struct form
+#     count: 3
+#     distribution:
+#       headless: 1
+#       node-port: 2
+scenarios:
+  - name: istio-prod-scale
+    description: Production-scale Istio load with many services, gateways, and virtualservices
+    source: istio
+    default: false
+    iterations: 10
+    resources:
+      services: 4000
+      gateways: 3000
+      virtualservices: 3000
+    metrics:
+      # TODO: source_endpoints_total and source_records are registered in controller/metrics.go
+      # which the benchmark does not import — needs a blank import or controller refactor to expose them.
+      # - external_dns_http_request_duration_seconds
+      # - external_dns_source_endpoints_total
+      # - external_dns_source_records
+      - go_memstats_alloc_bytes
+      - go_memstats_heap_objects
+
+  - name: istio-quick-smoke
+    description: Minimal Istio fixture set for fast iteration during development
+    source: istio
+    default: false
+    iterations: 5
+    resources:
+      services: 10
+      gateways: 20
+      virtualservices: 10
+    metrics:
+      # TODO: source_endpoints_total and source_records are registered in controller/metrics.go
+      # which the benchmark does not import — needs a blank import or controller refactor to expose them.
+      # - external_dns_http_request_duration_seconds
+      # - external_dns_source_endpoints_total
+      # - external_dns_source_records
+      - go_memstats_alloc_bytes
+      - go_memstats_heap_objects
+
+  - name: pod-quick-smoke
+    description: Minimal Pod source fixture set — annotated pods as DNS sources
+    source: pod
+    default: false
+    iterations: 5
+    resources:
+      pods:
+        count: 20
+    metrics:
+      - go_memstats_alloc_bytes
+      - go_memstats_heap_objects
+
+  - name: service-light
+    description: Minimal Service source fixture — small cluster to validate wiring and fast iteration
+    source: service
+    default: false
+    iterations: 5
+    resources:
+      services:
+        count: 3
+        distribution:
+          headless: 1    # 1 headless service (ClusterIP: None, resolved via target annotation)
+          node-port: 2   # 2 NodePort services (resolved via node ExternalIPs)
+      nodes: 5
+      pods:
+        count: 10
+        distribution:
+          headless: 1    # pods backing headless services (selected via podSvcLabel)
+          node-port: 2   # pods co-located on nodes running NodePort services
+    metrics:
+      - go_memstats_alloc_bytes
+      - go_memstats_heap_objects
+
+  - name: service-heavy
+    description: Production-scale Service source — mix of headless and NodePort services across a large cluster
+    source: service
+    default: true
+    iterations: 10
+    resources:
+      services:
+        count: 2600
+        distribution:
+          headless: 1    # ~1300 headless services (ClusterIP: None, resolved via target annotation)
+          node-port: 1   # ~1300 NodePort services (resolved via node ExternalIPs)
+      nodes: 3000
+      pods:
+        count: 60000
+        distribution:
+          headless: 1    # pods backing headless services (selected via podSvcLabel)
+          node-port: 1   # pods co-located on nodes running NodePort services
+    metrics:
+      - go_memstats_alloc_bytes
+      - go_memstats_heap_objects
+
+  - name: dnsendpoint-quick-smoke
+    description: Minimal CRD source fixture set — DNSEndpoint objects as DNS sources
+    source: dnsendpoint
+    default: false
+    iterations: 5
+    resources:
+      dnsendpoints: 20
+    metrics:
+      - go_memstats_alloc_bytes
+      - go_memstats_heap_objects
