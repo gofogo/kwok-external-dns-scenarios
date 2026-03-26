@@ -198,7 +198,7 @@ Run one: `go run . --scenario istio-quick-smoke`
 |---|---|---|
 | `github.com/Shopify/toxiproxy/v2` | v2.12.0 | In-process TCP proxy for latency injection |
 | `istio.io/client-go` | v1.29.1 | Typed Istio clients |
-| `sigs.k8s.io/external-dns` | local fork | `replace` directive → `../../../../go-work/fork-external-dns` |
+| `sigs.k8s.io/external-dns` | v0.20.1-0.20260325233016-83e1bcf39d1a (master) | go.work → `../fork-external-dns` for local dev (gitignored) |
 | `k8s.io/client-go` | v0.35.3 | Standard k8s client |
 | `github.com/prometheus/client_golang` | v1.23.2 | Metrics scraping |
 

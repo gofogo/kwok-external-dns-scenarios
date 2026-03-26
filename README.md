@@ -1,64 +1,77 @@
-# KWOK
+# ext-dns-kwok-bench
 
-- https://kwok.sigs.k8s.io/
-- https://kwok.sigs.k8s.io/docs/examples/prometheus/
+Benchmarks [external-dns](https://github.com/kubernetes-sigs/external-dns) source implementations against a [KWOK](https://kwok.sigs.k8s.io/) cluster. Measures API call counts and latency to compare informer-cached vs. direct-API code paths.
+
+## Features
+
+- Benchmarks all major external-dns source types: Service, Istio (Gateway + VirtualService), Pod, DNSEndpoint
+- Measures API call counts and latency per iteration (warmup + steady-state)
+- Injects configurable API server latency and jitter via embedded toxiproxy
+- Scrapes per-iteration Prometheus metrics (memory, GC, custom counters)
+- Cross-branch comparison: reuse fixtures across runs with `--skip-setup`
+- Concurrent fixture creation with configurable parallelism
+- Scenarios defined in `bench.yaml` — scale from smoke tests to production-scale loads
+- Results saved to a file for easy diffing across runs
+
+## Prerequisites
+
+- [kwok](https://kwok.sigs.k8s.io/) — `brew install kwok`
+- `kubectl`
+- Docker (running)
+- Go 1.21+
+
+## Quick start
 
 ```sh
-brew install kwok
-
-kwokctl config view
-cat ~/.kwok/clusters/<cluster name>/kwok.yaml
-
-kwokctl delete cluster --name ext-dns-bench
-kwokctl delete cluster --name ext-dns-bench
+go run .
 ```
 
+Runs the default scenario (`service-light`) — creates a KWOK cluster, loads fixtures, benchmarks, and leaves the cluster running.
 
-```
-# Run with config file
-  cd ~/source/self/workshops/kubernetes-sigs-issues/iac/kwok && go run . --config bench.yaml
-
-# Run everything in one command (creates cluster, installs CRDs, creates 3K fixtures, benchmarks, cleans up)
-  cd /Users/ik/source/self/workshops/kubernetes-sigs-issues/iac/kwok
-  go run . --cleanup
-
-  # Compare branches: run on current branch, keep cluster, switch branch, re-run
-  go run . --gateways 3000 --virtualservices 3000 --iterations 20
-  # results written to ext-dns-bench-results.txt
-
-  git checkout master  # in fork-external-dns
-  go run . --skip-setup --cleanup --iterations 20
-  # appends to ext-dns-bench-results.txt — compare manually
-
-  The --skip-setup flag lets you reuse the same cluster across branch comparisons. Results are appended to <cluster-name>-results.txt for easy diffing.
-
-  Want to do a test run now?
+```sh
+go run . --cleanup        # delete cluster after the run
+go run . --scenario istio-quick-smoke  # run a specific scenario
 ```
 
-Build succeeded. And on the kwok question: kwok's delay/jitter support is for stage transitions — it controls when simulated resources change state (e.g. node heartbeat
-  after 20s±5s). It has no mechanism to inject latency into API server request/response cycles.
+## Available scenarios
 
-  So our toxiproxy approach is the right one. The project is now fully working:
+| Name | Source | Scale | Default |
+|---|---|---|---|
+| `service-light` | Service | 3 svc + 5 nodes + 10 pods | yes |
+| `service-heavy` | Service | 2600 svc + 3000 nodes + 60k pods | no |
+| `istio-quick-smoke` | Istio | 20 gw + 10 vs | no |
+| `istio-prod-scale` | Istio | 3000 gw + 3000 vs | no |
+| `pod-quick-smoke` | Pod | 20 pods | no |
+| `dnsendpoint-quick-smoke` | DNSEndpoint | 20 dnsendpoints | no |
 
-  kwok/
-  ├── main.go                    # flags, orchestration, proxy wiring
-  ├── crds/istio.yaml            # embedded Gateway + VirtualService CRDs
-  ├── internal/
-  │   ├── cluster/cluster.go     # kwokctl create/delete/kubeconfig/apply CRDs
-  │   ├── fixtures/fixtures.go   # create services, gateways, virtualservices
-  │   ├── bench/bench.go         # run Endpoints() N times, compute stats
-  │   └── proxy/proxy.go         # embedded toxiproxy with latency toxic
+## Cross-branch comparison
 
-  Usage:
-  # Full run, no latency
-  go run . --cleanup
+The main use case: compare two branches of external-dns against identical fixtures.
 
-  # With 50ms latency + 10ms jitter (highlights the old List() call penalty)
-  go run . --latency-ms 50 --jitter-ms 10 --cleanup
+```sh
+# Branch A — create cluster, load fixtures, benchmark
+go run . --scenario istio-prod-scale --save-results
 
-  # Cross-branch comparison: keep cluster between runs
-  go run . --gateways 3000 --virtualservices 3000 --iterations 20
-  # switch to master in fork-external-dns, recompile
-  go run . --skip-setup --cleanup --iterations 20
-  # compare ext-dns-bench-results.txt
+# Switch branch in your external-dns fork, then reuse the same cluster
+go run . --scenario istio-prod-scale --skip-setup --save-results
 
+# Compare
+cat ext-dns-bench-results.txt
+```
+
+`--skip-setup` reuses the existing cluster and fixtures — no teardown between runs.
+`--save-results` appends results to `<cluster-name>-results.txt`.
+`api_reqs=0` in steady state means the informer cache is fully effective.
+
+## Key flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--scenario` | all defaults | Run a single named scenario |
+| `--skip-setup` | false | Reuse existing cluster and fixtures |
+| `--cleanup` | false | Delete cluster after the run |
+| `--latency-ms` | 500ms | Inject API server latency via toxiproxy |
+| `--jitter-ms` | 100ms | Jitter on top of `--latency-ms` |
+| `--save-results` | false | Append results to `<cluster-name>-results.txt` |
+
+All flags can also be set in `bench.yaml`. CLI flags take precedence.

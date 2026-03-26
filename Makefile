@@ -23,7 +23,7 @@ hooks-validate: ## Validate files with pre-commit hooks
 
 .PHONY: kwok-bench
 kwok-bench: ## Run KWOK benchmark with bench.yaml config
-	@cd iac/kwok && go run . --config bench.yaml
+	@go run . --config bench.yaml
 
 .PHONY: go-deps
 go-deps: ## Install go dependencies

@@ -59,6 +59,9 @@ func Run(ctx context.Context, flags cli.Flags, cfg config.Config) error {
 	}
 
 	if !flags.SkipSetup {
+		if err := cluster.CheckDocker(); err != nil {
+			return fmt.Errorf("preflight: %w", err)
+		}
 		next("creating KWOK cluster %q", flags.ClusterName)
 		if err := cluster.Create(flags.ClusterName); err != nil {
 			return errorf("create cluster: %w", err)

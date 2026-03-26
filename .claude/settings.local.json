@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(go vet:*)",
-      "Bash(go build:*)"
+      "Bash(go build:*)",
+      "Bash(go get:*)",
+      "Bash(GOWORK=off go get sigs.k8s.io/external-dns@master 2>&1)",
+      "Bash(rm go.work)",
+      "Bash(go work:*)"
     ]
   }
 }

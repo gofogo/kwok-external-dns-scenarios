@@ -120,7 +120,7 @@ scenarios:
   - name: service-light
     description: Minimal Service source fixture — small cluster to validate wiring and fast iteration
     source: service
-    default: false
+    default: true
     iterations: 5
     resources:
       services:
@@ -141,7 +141,7 @@ scenarios:
   - name: service-heavy
     description: Production-scale Service source — mix of headless and NodePort services across a large cluster
     source: service
-    default: true
+    default: false
     iterations: 10
     resources:
       services:

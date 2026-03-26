@@ -12,6 +12,17 @@ import (
 	"time"
 )
 
+// CheckDocker returns an error if the Docker daemon is not reachable.
+func CheckDocker() error {
+	if _, err := exec.LookPath("docker"); err != nil {
+		return fmt.Errorf("docker not found in PATH: %w", err)
+	}
+	if err := output2("docker", "info"); err != nil {
+		return fmt.Errorf("docker daemon not reachable (is Docker running?): %w", err)
+	}
+	return nil
+}
+
 // Create creates a KWOK cluster with the given name.
 // Extra kube-apiserver flags:
 //   - service-cluster-ip-range=10.0.0.0/12 — /12 CIDR (~1M addresses) instead of the default
