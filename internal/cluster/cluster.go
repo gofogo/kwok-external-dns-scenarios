@@ -14,11 +14,8 @@ import (
 
 // CheckDocker returns an error if the Docker daemon is not reachable.
 func CheckDocker() error {
-	if _, err := exec.LookPath("docker"); err != nil {
-		return fmt.Errorf("docker not found in PATH: %w", err)
-	}
-	if err := output2("docker", "info"); err != nil {
-		return fmt.Errorf("docker daemon not reachable (is Docker running?): %w", err)
+	if err := output2("docker", "version"); err != nil {
+		return fmt.Errorf("docker not available (is Docker running?): %w", err)
 	}
 	return nil
 }
