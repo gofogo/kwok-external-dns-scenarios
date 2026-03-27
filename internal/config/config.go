@@ -134,21 +134,27 @@ type CleanupConfig struct {
 
 // Config holds all benchmark parameters. YAML keys match the long flag names.
 type Config struct {
-	ClusterName  string        `json:"cluster-name"`
-	Scenarios    []Scenario    `json:"scenarios"`
-	Metrics      MetricsConfig `json:"metrics"`
-	PauseMs      millis        `json:"pause-ms"`
-	SkipSetup    bool          `json:"skip-setup"`
-	Cleanup      CleanupConfig `json:"cleanup"`
-	LatencyMs    millis        `json:"latency-ms"`
-	JitterMs     millis        `json:"jitter-ms"`
-	WaitAttempts int           `json:"wait-attempts"`
-	Concurrency  int           `json:"concurrency"`
-	SaveResults  bool          `json:"save-results"`
+	ClusterName    string        `json:"cluster-name"`
+	Scenarios      []Scenario    `json:"scenarios"`
+	Metrics        MetricsConfig `json:"metrics"`
+	PauseMs        millis        `json:"pause-ms"`
+	WarmupTimeout  millis        `json:"warmup-timeout"`
+	SkipSetup      bool          `json:"skip-setup"`
+	Cleanup        CleanupConfig `json:"cleanup"`
+	LatencyMs      millis        `json:"latency-ms"`
+	JitterMs       millis        `json:"jitter-ms"`
+	WaitAttempts   int           `json:"wait-attempts"`
+	Concurrency    int           `json:"concurrency"`
+	CRDClientQPS   float32       `json:"crd-client-qps"`
+	CRDClientBurst int           `json:"crd-client-burst"`
+	SaveResults    bool          `json:"save-results"`
 }
 
 // PauseMsInt returns PauseMs as an int.
 func (c Config) PauseMsInt() int { return int(c.PauseMs) }
+
+// WarmupTimeoutMs returns WarmupTimeout as an int (0 = no timeout).
+func (c Config) WarmupTimeoutMsInt() int { return int(c.WarmupTimeout) }
 
 // LatencyMsInt returns LatencyMs as an int.
 func (c Config) LatencyMsInt() int { return int(c.LatencyMs) }
@@ -159,9 +165,11 @@ func (c Config) JitterMsInt() int { return int(c.JitterMs) }
 // DefaultConfig returns the built-in default configuration.
 func DefaultConfig() Config {
 	return Config{
-		ClusterName:  "ext-dns-bench",
-		WaitAttempts: 10,
-		Concurrency:  100,
+		ClusterName:    "ext-dns-bench",
+		WaitAttempts:   10,
+		Concurrency:    100,
+		CRDClientQPS:   5,
+		CRDClientBurst: 10,
 		Metrics:      MetricsConfig{Enabled: false, URL: "http://localhost:7979/metrics"},
 		Scenarios: []Scenario{
 			{

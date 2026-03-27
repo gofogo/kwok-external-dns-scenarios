@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,16 +36,22 @@ func NewDNSEndpointRunner(
 	directCfg *rest.Config,
 	nEndpoints, concurrency int,
 	nsDist distribute.Weights,
+	crdClientQPS float32,
+	crdClientBurst int,
+	wrapTransport func(http.RoundTripper) http.RoundTripper,
 ) (*DNSEndpointRunner, error) {
 	dynClient, err := dynamic.NewForConfig(directCfg)
 	if err != nil {
 		return nil, fmt.Errorf("dnsendpoint runner: build dynamic client: %w", err)
 	}
 	cfg := &source.Config{
-		KubeConfig:          kubeconfigPath,
-		CRDSourceAPIVersion: "externaldns.k8s.io/v1alpha1",
-		CRDSourceKind:       "DNSEndpoint",
-		LabelFilter:         labels.Everything(),
+		KubeConfig:             kubeconfigPath,
+		CRDSourceAPIVersion:    "externaldns.k8s.io/v1alpha1",
+		CRDSourceKind:          "DNSEndpoint",
+		LabelFilter:            labels.Everything(),
+		CRDClientQPS:           crdClientQPS,
+		CRDClientBurst:         crdClientBurst,
+		CRDClientWrapTransport: wrapTransport,
 	}
 	crdClient, scheme, err := source.NewCRDClientForAPIVersionKind(benchKubeClient, cfg)
 	if err != nil {

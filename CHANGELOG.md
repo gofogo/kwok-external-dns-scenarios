@@ -4,6 +4,27 @@ All notable changes to the KWOK benchmarking tool are documented here.
 
 ## [Unreleased]
 
+### Added
+- `warmup-timeout` config field (and `--warmup-timeout` flag): bounds the first `Endpoints()` call;
+  defaults to `0` (no timeout). Prevents the benchmark from hanging when the CRD source is slow
+  on its initial call.
+- `crd-client-qps` / `crd-client-burst` config fields (and matching flags): explicit rate-limiter
+  settings for the CRD REST client used by `CRDSource`. Defaults match kube defaults (5 QPS / 10
+  burst); raise for large `dnsendpoint` scenarios to avoid stalling on `UpdateStatus` calls.
+- `fork-external-dns`: `source.Config.CRDClientQPS`, `CRDClientBurst`, `CRDClientWrapTransport`
+  fields; `NewCRDClientForAPIVersionKind` applies them when building the REST client so the
+  benchmark counting transport covers all CRD API calls.
+
+### Fixed
+- CRD source API calls (LIST + `UpdateStatus`) were not tracked by the benchmark counter because
+  `NewCRDClientForAPIVersionKind` builds its own REST config from the kubeconfig, bypassing
+  `benchCfg`'s `CountingTransport`. Fixed by threading `benchCfg.WrapTransport` through to the
+  CRD client via the new `CRDClientWrapTransport` field.
+- First `Endpoints()` call on large `dnsendpoint` scenarios appeared frozen: `CRDSource` calls
+  `UpdateStatus` on every endpoint (to sync `ObservedGeneration`), and the default 5 QPS limiter
+  serialised thousands of PUTs. Addressed by exposing `crd-client-qps`/`crd-client-burst` and the
+  warmup timeout.
+
 ### Changed
 - `bench.yaml` `distribution` is now a named-axis map rather than a flat weight map.
   All resource types (`services`, `pods`, `dnsendpoints`) use the same struct form:

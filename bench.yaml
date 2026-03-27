@@ -6,6 +6,12 @@ cluster-name: ext-dns-bench
 # Accepts plain milliseconds (500), duration strings (500ms, 1s, 2s). Set to 0 to disable.
 pause-ms: 1s
 
+# Timeout for the warmup (first) Endpoints() call. The CRD source updates
+# ObservedGeneration for every endpoint on each call — with many freshly-created
+# endpoints this can be slow. Set a bound so a stuck warmup fails fast.
+# Accepts plain milliseconds (30000) or a duration string (30s, 2m). Set to 0 to disable.
+warmup-timeout: 2m
+
 # Controls whether the cluster and fixtures are created on startup.
 #   false (default): creates the KWOK cluster and populates it with services, gateways,
 #                    and virtualservices using the counts in the selected scenario(s).
@@ -41,6 +47,13 @@ wait-attempts: 10
 # Number of concurrent API requests during fixture creation (services, gateways, virtualservices).
 # Higher values speed up setup but increase API server load.
 concurrency: 300
+
+# Rate limiter settings for the CRD REST client used by CRDSource (dnsendpoint scenarios).
+# CRDSource calls UpdateStatus on every endpoint in each Endpoints() call; with many endpoints
+# the default kube values (5 QPS / 10 burst) stall the benchmark. Raise these when running
+# large dnsendpoint scenarios.
+crd-client-qps: 5
+crd-client-burst: 10
 
 # In-process Prometheus metrics server and per-iteration scraping.
 metrics:
@@ -179,7 +192,7 @@ scenarios:
     iterations: 5
     resources:
       dnsendpoints:
-        count: 20
+        count: 300
         distribution:
           namespaces:
             dev: 10

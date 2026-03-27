@@ -172,7 +172,7 @@ func Run(ctx context.Context, flags cli.Flags, cfg config.Config) error {
 	for _, scenario := range selected {
 		next("Scenario: %s — %s", scenario.Name, scenario.Description)
 
-		runners, err := runnersForScenario(scenario, benchKubeClient, benchIstioClient, directCfg, kubeconfigPath, flags.Concurrency)
+		runners, err := runnersForScenario(scenario, benchKubeClient, benchIstioClient, benchCfg, directCfg, kubeconfigPath, flags.Concurrency, flags.CRDClientQPS, flags.CRDClientBurst)
 		if err != nil {
 			return errorf("build runners for scenario %q: %w", scenario.Name, err)
 		}
@@ -199,7 +199,8 @@ func Run(ctx context.Context, flags cli.Flags, cfg config.Config) error {
 		var sourceResults []report.NamedSourceStats
 		for _, sr := range runners {
 			next("[%s] creating %s source and syncing informer cache", scenario.Name, sr.Label())
-			stats, err := runSourceBenchmark(ctx, sr, scenario.Iterations, apiCounter, scraper, interval)
+			warmupTimeout := time.Duration(flags.WarmupTimeoutMs) * time.Millisecond
+		stats, err := runSourceBenchmark(ctx, sr, scenario.Iterations, apiCounter, scraper, interval, warmupTimeout)
 			if err != nil {
 				return errorf("%w", err)
 			}

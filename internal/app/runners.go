@@ -18,9 +18,12 @@ func runnersForScenario(
 	s config.Scenario,
 	benchKubeClient kubernetes.Interface,
 	benchIstioClient istioclient.Interface,
+	benchCfg *rest.Config,
 	directCfg *rest.Config,
 	kubeconfigPath string,
 	concurrency int,
+	crdClientQPS float32,
+	crdClientBurst int,
 ) ([]runner.SourceRunner, error) {
 	r := s.Resources
 	switch s.Source {
@@ -41,7 +44,7 @@ func runnersForScenario(
 		}
 		return []runner.SourceRunner{pr}, nil
 	case config.SourceDNSEndpoint:
-		ep, err := runner.NewDNSEndpointRunner(benchKubeClient, kubeconfigPath, directCfg, r.DNSEndpoints.Count, concurrency, r.DNSEndpoints.Distribution.Namespaces)
+		ep, err := runner.NewDNSEndpointRunner(benchKubeClient, kubeconfigPath, directCfg, r.DNSEndpoints.Count, concurrency, r.DNSEndpoints.Distribution.Namespaces, crdClientQPS, crdClientBurst, benchCfg.WrapTransport)
 		if err != nil {
 			return nil, err
 		}

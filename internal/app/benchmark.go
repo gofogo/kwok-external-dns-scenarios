@@ -73,6 +73,7 @@ func runSourceBenchmark(
 	apiCounter *transport.CountingTransport,
 	scraper *metrics.Scraper,
 	interval time.Duration,
+	warmupTimeout time.Duration,
 ) (report.SourceStats, error) {
 	t0 := time.Now()
 	setupIdx := apiCounter.SnapshotIndexes()
@@ -98,7 +99,14 @@ func runSourceBenchmark(
 
 	bRunner := bench.NewRunner(sr.Label(), iterations, &apiCounter.Count)
 	warmupIdx := apiCounter.SnapshotIndexes()
-	first, err := bRunner.First(ctx, fn)
+
+	warmupCtx := ctx
+	var warmupCancel context.CancelFunc
+	if warmupTimeout > 0 {
+		warmupCtx, warmupCancel = context.WithTimeout(ctx, warmupTimeout)
+		defer warmupCancel()
+	}
+	first, err := bRunner.First(warmupCtx, fn)
 	if err != nil {
 		return report.SourceStats{}, fmt.Errorf("[%s] warmup: %w", sr.Label(), err)
 	}

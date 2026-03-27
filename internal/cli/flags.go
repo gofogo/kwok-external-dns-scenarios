@@ -12,21 +12,24 @@ import (
 
 // Flags holds all resolved flag values.
 type Flags struct {
-	ClusterName     string
-	ScenarioName    string
-	MetricsEnabled  bool
-	MetricsURL      string
-	MetricsVerbose  bool
-	PauseMs         int
-	SkipSetup       bool
-	CleanupEnabled  bool
-	CleanupOnError  bool
-	LatencyMs       int
-	JitterMs        int
-	WaitAttempts    int
-	Concurrency     int
-	SaveResults     bool
-	ConfigFile      string
+	ClusterName      string
+	ScenarioName     string
+	MetricsEnabled   bool
+	MetricsURL       string
+	MetricsVerbose   bool
+	PauseMs          int
+	WarmupTimeoutMs  int
+	SkipSetup        bool
+	CleanupEnabled   bool
+	CleanupOnError   bool
+	LatencyMs        int
+	JitterMs         int
+	WaitAttempts     int
+	Concurrency      int
+	CRDClientQPS     float32
+	CRDClientBurst   int
+	SaveResults      bool
+	ConfigFile       string
 }
 
 // MustParse parses args and returns resolved Flags and the loaded Config.
@@ -49,6 +52,7 @@ func MustParse(args []string) (Flags, config.Config) {
 	metricsURL     := fs.String("metrics-url", cfg.Metrics.URL, "address for the in-process metrics server and scrape endpoint")
 	metricsVerbose := fs.Bool("metrics-verbose", false, "show per-iteration metric deltas in addition to per-test totals")
 	pauseMs        := fs.Int("pause-ms", cfg.PauseMsInt(), "delay between iterations in ms (0 = no delay); accepts 500 or 500ms")
+	warmupTimeout  := fs.Int("warmup-timeout", cfg.WarmupTimeoutMsInt(), "timeout for the warmup (first) iteration in ms (0 = no timeout); accepts 30000 or 30s")
 	skipSetup      := fs.Bool("skip-setup", cfg.SkipSetup, "skip cluster creation and fixture loading (reuse existing cluster)")
 	cleanupEnabled := fs.Bool("cleanup", cfg.Cleanup.Enabled, "delete cluster after benchmarking")
 	cleanupOnError := fs.Bool("cleanup-on-error", cfg.Cleanup.OnError, "delete cluster even when the benchmark exits with an error")
@@ -56,6 +60,8 @@ func MustParse(args []string) (Flags, config.Config) {
 	jitterMs       := fs.Int("jitter-ms", cfg.JitterMsInt(), "latency jitter added on top of latency-ms; same format")
 	waitAttempts   := fs.Int("wait-attempts", cfg.WaitAttempts, "max attempts when polling for API server readiness (2s between each)")
 	concurrency    := fs.Int("concurrency", cfg.Concurrency, "number of concurrent API requests during fixture creation")
+	crdQPS         := fs.Float64("crd-client-qps", float64(cfg.CRDClientQPS), "QPS for the CRD REST client used by CRDSource (controls UpdateStatus call rate)")
+	crdBurst       := fs.Int("crd-client-burst", cfg.CRDClientBurst, "burst for the CRD REST client used by CRDSource")
 	saveResults    := fs.Bool("save-results", cfg.SaveResults, "append machine-readable results to <cluster-name>-results.txt after each scenario")
 	fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
 
@@ -65,7 +71,8 @@ func MustParse(args []string) (Flags, config.Config) {
 		MetricsEnabled: *metricsEnabled,
 		MetricsURL:     *metricsURL,
 		MetricsVerbose: *metricsVerbose,
-		PauseMs:        *pauseMs,
+		PauseMs:         *pauseMs,
+		WarmupTimeoutMs: *warmupTimeout,
 		SkipSetup:      *skipSetup,
 		CleanupEnabled: *cleanupEnabled,
 		CleanupOnError: *cleanupOnError,
@@ -73,6 +80,8 @@ func MustParse(args []string) (Flags, config.Config) {
 		JitterMs:       *jitterMs,
 		WaitAttempts:   *waitAttempts,
 		Concurrency:    *concurrency,
+		CRDClientQPS:   float32(*crdQPS),
+		CRDClientBurst: *crdBurst,
 		SaveResults:    *saveResults,
 		ConfigFile:     configFile,
 	}
