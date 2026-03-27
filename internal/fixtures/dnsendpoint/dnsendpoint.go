@@ -10,12 +10,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/kubernetes"
 
+	"github.com/kubernetes-sigs-issues/iac/kwok/internal/distribute"
 	"github.com/kubernetes-sigs-issues/iac/kwok/internal/fixtures/helpers"
 	"github.com/kubernetes-sigs-issues/iac/kwok/internal/progress"
 )
 
-const ns = "default"
+const defaultNs = "default"
 
 var gvr = schema.GroupVersionResource{
 	Group:    "externaldns.k8s.io",
@@ -25,24 +27,50 @@ var gvr = schema.GroupVersionResource{
 
 // DNSEndpointFixture creates DNSEndpoint CRD objects for CRDSource benchmarking.
 // Requires the DNSEndpoint CRD to be installed in the cluster before Setup is called.
+// When NsDist is set, endpoints are distributed across namespaces proportionally;
+// otherwise all endpoints are created in the default namespace.
 type DNSEndpointFixture struct {
+	KubeClient  kubernetes.Interface
 	DynClient   dynamic.Interface
 	N           int
+	NsDist      distribute.Weights
 	Concurrency int
 }
 
-// Setup creates N DNSEndpoint objects in the default namespace.
+// Setup creates N DNSEndpoint objects, distributing across namespaces per NsDist.
 func (f *DNSEndpointFixture) Setup(ctx context.Context) error {
 	f.Concurrency = helpers.AtLeast(f.Concurrency, 1)
+
+	// Build per-index namespace assignment.
+	nsForIndex := distribute.Distribute(f.N, f.NsDist)
+	if nsForIndex == nil {
+		nsForIndex = make([]string, f.N)
+		for i := range f.N {
+			nsForIndex[i] = defaultNs
+		}
+	}
+
+	// Ensure all target namespaces exist before creating endpoints.
+	seen := map[string]bool{}
+	for _, name := range nsForIndex {
+		if !seen[name] {
+			seen[name] = true
+			if err := helpers.EnsureNamespace(ctx, f.KubeClient, name); err != nil {
+				return err
+			}
+		}
+	}
+
 	bar := progress.New("dnsendpoints", f.N)
 	skipped, err := helpers.RunConcurrent(ctx, f.N, f.Concurrency, bar, func(i int) (bool, error) {
+		epNs := nsForIndex[i]
 		obj := &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "externaldns.k8s.io/v1alpha1",
 				"kind":       "DNSEndpoint",
 				"metadata": map[string]interface{}{
 					"name":        fmt.Sprintf("bench-ep-%d", i),
-					"namespace":   ns,
+					"namespace":   epNs,
 					"labels":      helpers.StringsToInterface(helpers.CommonLabels(map[string]string{"ep-index": fmt.Sprintf("%d", i)})),
 					"annotations": helpers.StringsToInterface(helpers.CommonAnnotations(i)),
 				},
@@ -58,7 +86,7 @@ func (f *DNSEndpointFixture) Setup(ctx context.Context) error {
 				},
 			},
 		}
-		_, err := f.DynClient.Resource(gvr).Namespace(ns).Create(ctx, obj, metav1.CreateOptions{})
+		_, err := f.DynClient.Resource(gvr).Namespace(epNs).Create(ctx, obj, metav1.CreateOptions{})
 		if k8serrors.IsAlreadyExists(err) {
 			return true, nil
 		}

@@ -61,13 +61,18 @@ metrics:
 #   dnsendpoint  — CRDSource (kind: DNSEndpoint); resources: dnsendpoints.
 #   service      — ServiceSource; resources: services (mix of headless and node-port), nodes, pods.
 #
-# services and pods accept either a plain integer or a struct with count + distribution:
+# All resource counts accept either a plain integer or a struct with count + distribution.
+# distribution is a map of named axes; each axis holds proportional weights:
 #   services: 3                   # plain integer
 #   services:                     # struct form
 #     count: 3
 #     distribution:
-#       headless: 1
-#       node-port: 2
+#       service-type:             # headless vs node-port split (services and pods)
+#         headless: 1
+#         node-port: 2
+#       namespaces:               # spread across namespaces (any resource type)
+#         dev: 2
+#         staging: 1
 scenarios:
   - name: istio-prod-scale
     description: Production-scale Istio load with many services, gateways, and virtualservices
@@ -120,20 +125,22 @@ scenarios:
   - name: service-light
     description: Minimal Service source fixture — small cluster to validate wiring and fast iteration
     source: service
-    default: true
+    default: false
     iterations: 5
     resources:
       services:
         count: 3
         distribution:
-          headless: 1    # 1 headless service (ClusterIP: None, resolved via target annotation)
-          node-port: 2   # 2 NodePort services (resolved via node ExternalIPs)
+          service-type:
+            headless: 1    # 1 headless service (ClusterIP: None, resolved via target annotation)
+            node-port: 2   # 2 NodePort services (resolved via node ExternalIPs)
       nodes: 5
       pods:
         count: 10
         distribution:
-          headless: 1    # pods backing headless services (selected via podSvcLabel)
-          node-port: 2   # pods co-located on nodes running NodePort services
+          service-type:
+            headless: 1    # pods backing headless services (selected via podSvcLabel)
+            node-port: 2   # pods co-located on nodes running NodePort services
     metrics:
       - go_memstats_alloc_bytes
       - go_memstats_heap_objects
@@ -147,14 +154,20 @@ scenarios:
       services:
         count: 2600
         distribution:
-          headless: 1    # ~1300 headless services (ClusterIP: None, resolved via target annotation)
-          node-port: 1   # ~1300 NodePort services (resolved via node ExternalIPs)
+          service-type:
+            headless: 1
+            node-port: 1
+          namespaces:
+            dev: 10
+            staging: 5
+            default: 5
       nodes: 3000
       pods:
         count: 60000
         distribution:
-          headless: 1    # pods backing headless services (selected via podSvcLabel)
-          node-port: 1   # pods co-located on nodes running NodePort services
+          service-type:
+            headless: 1    # pods backing headless services (selected via podSvcLabel)
+            node-port: 1   # pods co-located on nodes running NodePort services
     metrics:
       - go_memstats_alloc_bytes
       - go_memstats_heap_objects
@@ -162,10 +175,16 @@ scenarios:
   - name: dnsendpoint-quick-smoke
     description: Minimal CRD source fixture set — DNSEndpoint objects as DNS sources
     source: dnsendpoint
-    default: false
+    default: true
     iterations: 5
     resources:
-      dnsendpoints: 20
+      dnsendpoints:
+        count: 20
+        distribution:
+          namespaces:
+            dev: 10
+            staging: 5
+            default: 5
     metrics:
       - go_memstats_alloc_bytes
       - go_memstats_heap_objects

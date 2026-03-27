@@ -41,15 +41,15 @@ func runnersForScenario(
 		}
 		return []runner.SourceRunner{pr}, nil
 	case config.SourceDNSEndpoint:
-		ep, err := runner.NewDNSEndpointRunner(benchKubeClient, kubeconfigPath, directCfg, r.DNSEndpoints, concurrency)
+		ep, err := runner.NewDNSEndpointRunner(benchKubeClient, kubeconfigPath, directCfg, r.DNSEndpoints.Count, concurrency, r.DNSEndpoints.Distribution.Namespaces)
 		if err != nil {
 			return nil, err
 		}
 		return []runner.SourceRunner{ep}, nil
 	case config.SourceService:
 		sr, err := runner.NewServiceRunner(benchKubeClient, directCfg, r.Services.Count, r.Nodes, r.Pods.Count, concurrency,
-			runner.WithSvcDist(r.Services.Distribution),
-			runner.WithPodDist(r.Pods.Distribution),
+			runner.WithSvcDist(r.Services.Distribution.ServiceType),
+			runner.WithPodDist(r.Pods.Distribution.ServiceType),
 		)
 		if err != nil {
 			return nil, err

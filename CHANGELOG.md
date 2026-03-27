@@ -4,6 +4,30 @@ All notable changes to the KWOK benchmarking tool are documented here.
 
 ## [Unreleased]
 
+### Changed
+- `bench.yaml` `distribution` is now a named-axis map rather than a flat weight map.
+  All resource types (`services`, `pods`, `dnsendpoints`) use the same struct form:
+  ```yaml
+  distribution:
+    service-type:      # headless vs node-port split
+      headless: 1
+      node-port: 2
+    namespaces:        # spread across namespaces
+      dev: 10
+      staging: 5
+      default: 5
+  ```
+  Existing scenarios that used the flat `distribution: { headless: 1, node-port: 2 }` form
+  must be migrated to `distribution: { service-type: { headless: 1, node-port: 2 } }`.
+- `config.go`: `ResourceCount.Distribution` changed from `distribute.Weights` to a `Distribution`
+  struct with `service-type` and `namespaces` axes; `DNSEndpointCount`/`DNSEndpointDist` types
+  removed — `Resources.DNSEndpoints` is now `ResourceCount` like all other resource fields.
+- `internal/fixtures/dnsendpoint`: `DNSEndpointFixture` gains `KubeClient` and `NsDist` fields;
+  endpoints are distributed across namespaces when `NsDist` is set, with namespaces created
+  automatically via `helpers.EnsureNamespace`.
+- `internal/runner/crd.go`: `NewDNSEndpointRunner` accepts a `nsDist distribute.Weights`
+  parameter and threads it through to the fixture.
+
 ## [0.3.0] - 2026-03-25
 
 ### Added

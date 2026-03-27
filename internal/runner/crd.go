@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/external-dns/source"
 
+	"github.com/kubernetes-sigs-issues/iac/kwok/internal/distribute"
 	dnsepfixture "github.com/kubernetes-sigs-issues/iac/kwok/internal/fixtures/dnsendpoint"
 )
 
@@ -18,11 +19,13 @@ import (
 // The CRD REST client is built once at construction to avoid a kubeconfig
 // disk read and discovery API call on every NewSource invocation.
 type DNSEndpointRunner struct {
+	kubeClient      kubernetes.Interface
 	directDynClient dynamic.Interface
 	crdClient       rest.Interface
 	crdScheme       *runtime.Scheme
 	crdCfg          *source.Config
 	nEndpoints      int
+	nsDist          distribute.Weights
 	concurrency     int
 }
 
@@ -31,6 +34,7 @@ func NewDNSEndpointRunner(
 	kubeconfigPath string,
 	directCfg *rest.Config,
 	nEndpoints, concurrency int,
+	nsDist distribute.Weights,
 ) (*DNSEndpointRunner, error) {
 	dynClient, err := dynamic.NewForConfig(directCfg)
 	if err != nil {
@@ -47,11 +51,13 @@ func NewDNSEndpointRunner(
 		return nil, fmt.Errorf("dnsendpoint runner: build CRD client: %w", err)
 	}
 	return &DNSEndpointRunner{
+		kubeClient:      benchKubeClient,
 		directDynClient: dynClient,
 		crdClient:       crdClient,
 		crdScheme:       scheme,
 		crdCfg:          cfg,
 		nEndpoints:      nEndpoints,
+		nsDist:          nsDist,
 		concurrency:     concurrency,
 	}, nil
 }
@@ -61,8 +67,10 @@ func (r *DNSEndpointRunner) ResourceCount() int { return r.nEndpoints }
 
 func (r *DNSEndpointRunner) Setup(ctx context.Context) error {
 	return (&dnsepfixture.DNSEndpointFixture{
+		KubeClient:  r.kubeClient,
 		DynClient:   r.directDynClient,
 		N:           r.nEndpoints,
+		NsDist:      r.nsDist,
 		Concurrency: r.concurrency,
 	}).Setup(ctx)
 }

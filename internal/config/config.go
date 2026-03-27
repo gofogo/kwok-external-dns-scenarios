@@ -47,18 +47,38 @@ func (m *millis) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ResourceCount holds a resource count and an optional type distribution.
-// It unmarshals from either a plain integer (count: N shorthand) or a struct:
+// Distribution holds optional per-dimension weighting for a resource count.
+// Each field is a separate distribution axis; omit any that are not needed.
+//
+//	distribution:
+//	  service-type:      # headless vs node-port split (services and pods)
+//	    headless: 1
+//	    node-port: 2
+//	  namespaces:        # spread across namespaces (all resource types)
+//	    dev: 10
+//	    staging: 5
+//	    default: 5
+type Distribution struct {
+	ServiceType distribute.Weights `json:"service-type,omitempty"`
+	Namespaces  distribute.Weights `json:"namespaces,omitempty"`
+}
+
+// ResourceCount holds a resource count and optional distribution weights.
+// Unmarshals from either a plain integer or a struct form:
 //
 //	services: 3                      # plain int → {Count: 3}
 //	services:                        # struct form
 //	  count: 3
 //	  distribution:
-//	    headless: 1
-//	    node-port: 2
+//	    service-type:
+//	      headless: 1
+//	      node-port: 2
+//	    namespaces:
+//	      dev: 2
+//	      staging: 1
 type ResourceCount struct {
-	Count        int                `json:"count"`
-	Distribution distribute.Weights `json:"distribution,omitempty"`
+	Count        int          `json:"count"`
+	Distribution Distribution `json:"distribution,omitempty"`
 }
 
 func (r *ResourceCount) UnmarshalJSON(data []byte) error {
@@ -82,7 +102,7 @@ type Resources struct {
 	Gateways     int           `json:"gateways"`
 	VirtualSvcs  int           `json:"virtualservices"`
 	Pods         ResourceCount `json:"pods"`
-	DNSEndpoints int           `json:"dnsendpoints"`
+	DNSEndpoints ResourceCount `json:"dnsendpoints"`
 	Nodes        int           `json:"nodes"`
 }
 
