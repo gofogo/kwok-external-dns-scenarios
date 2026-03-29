@@ -51,8 +51,8 @@ concurrency: 300
 # Rate limiter settings for Kubernetes API clients. Applies to all sources.
 # 0 means use client-go built-in defaults (5 QPS / 10 burst).
 # Raise for large dnsendpoint scenarios where UpdateStatus calls on many endpoints stall the benchmark.
-kube-api-qps: 30
-kube-api-burst: 80
+kube-api-qps: 5
+kube-api-burst: 10
 
 # In-process Prometheus metrics server and per-iteration scraping.
 metrics:
@@ -188,7 +188,7 @@ scenarios:
     description: Minimal CRD source fixture set — DNSEndpoint objects as DNS sources
     source: dnsendpoint
     default: true
-    iterations: 5
+    iterations: 3
     resources:
       dnsendpoints:
         count: 3000

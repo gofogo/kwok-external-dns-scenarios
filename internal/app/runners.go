@@ -20,7 +20,7 @@ type RunnerEnv struct {
 	DirectCfg        *rest.Config
 	KubeconfigPath   string
 	Concurrency      int
-	KubeAPIQPS       float32
+	KubeAPIQPS       int
 	KubeAPIBurst     int
 }
 

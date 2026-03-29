@@ -145,7 +145,7 @@ type Config struct {
 	JitterMs       millis        `json:"jitter-ms"`
 	WaitAttempts   int           `json:"wait-attempts"`
 	Concurrency    int           `json:"concurrency"`
-	KubeAPIQPS     float32       `json:"kube-api-qps"`
+	KubeAPIQPS     int           `json:"kube-api-qps"`
 	KubeAPIBurst   int           `json:"kube-api-burst"`
 	SaveResults    bool          `json:"save-results"`
 }

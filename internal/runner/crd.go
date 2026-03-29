@@ -38,7 +38,7 @@ type DNSEndpointConfig struct {
 	NsDist distribute.Weights
 	// KubeAPIQPS and KubeAPIBurst control the Kubernetes API client rate limiter.
 	// 0 means use client-go built-in defaults (5 QPS / 10 burst).
-	KubeAPIQPS   float32
+	KubeAPIQPS   int
 	KubeAPIBurst int
 	// KubeconfigPath is the path to the kubeconfig used to load cluster credentials
 	// for InstrumentedRESTConfig.

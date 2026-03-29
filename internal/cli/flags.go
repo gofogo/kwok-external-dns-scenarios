@@ -26,7 +26,7 @@ type Flags struct {
 	JitterMs         int
 	WaitAttempts     int
 	Concurrency      int
-	KubeAPIQPS     float32
+	KubeAPIQPS     int
 	KubeAPIBurst   int
 	SaveResults      bool
 	ConfigFile       string
@@ -60,7 +60,7 @@ func MustParse(args []string) (Flags, config.Config) {
 	jitterMs       := fs.Int("jitter-ms", cfg.JitterMsInt(), "latency jitter added on top of latency-ms; same format")
 	waitAttempts   := fs.Int("wait-attempts", cfg.WaitAttempts, "max attempts when polling for API server readiness (2s between each)")
 	concurrency    := fs.Int("concurrency", cfg.Concurrency, "number of concurrent API requests during fixture creation")
-	kubeAPIQPS     := fs.Float64("kube-api-qps", float64(cfg.KubeAPIQPS), "QPS for Kubernetes API clients; accepts fractional values (e.g. 0.5). 0 means use client-go built-in default (5 QPS)")
+	kubeAPIQPS     := fs.Int("kube-api-qps", cfg.KubeAPIQPS, "QPS for Kubernetes API clients. 0 means use client-go built-in default (5 QPS)")
 	kubeAPIBurst   := fs.Int("kube-api-burst", cfg.KubeAPIBurst, "burst for Kubernetes API clients. 0 means use client-go built-in default (10 burst)")
 	saveResults    := fs.Bool("save-results", cfg.SaveResults, "append machine-readable results to <cluster-name>-results.txt after each scenario")
 	fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
@@ -80,7 +80,7 @@ func MustParse(args []string) (Flags, config.Config) {
 		JitterMs:       *jitterMs,
 		WaitAttempts:   *waitAttempts,
 		Concurrency:    *concurrency,
-		KubeAPIQPS:   float32(*kubeAPIQPS),
+		KubeAPIQPS:   *kubeAPIQPS,
 		KubeAPIBurst: *kubeAPIBurst,
 		SaveResults:    *saveResults,
 		ConfigFile:     configFile,

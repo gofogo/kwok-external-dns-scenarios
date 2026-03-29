@@ -2,6 +2,14 @@
 
 All notable changes to the KWOK benchmarking tool are documented here.
 
+## [0.6.0] - 2026-03-29
+
+### Changed
+- `kube-api-qps` type changed from `float32` to `int` in config, CLI flags, `RunnerEnv`,
+  and `DNSEndpointConfig`. Fractional QPS values (e.g. `0.5`) are no longer accepted;
+  use whole numbers. Aligns with `InstrumentedRESTConfig(qps int)` in the fork and avoids
+  silent truncation casts throughout the call chain.
+
 ## [0.5.3] - 2026-03-29
 
 ### Changed
