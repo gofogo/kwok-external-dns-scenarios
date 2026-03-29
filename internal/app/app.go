@@ -168,7 +168,7 @@ func Run(ctx context.Context, flags cli.Flags, cfg config.Config) error {
 	for _, scenario := range selected {
 		next("Scenario: %s — %s", scenario.Name, scenario.Description)
 
-		runners, err := runnersForScenario(scenario, benchKubeClient, benchIstioClient, benchCfg, directCfg, kubeconfigPath, flags.Concurrency, flags.CRDClientQPS, flags.CRDClientBurst)
+		runners, err := runnersForScenario(scenario, benchKubeClient, benchIstioClient, benchCfg, directCfg, kubeconfigPath, flags.Concurrency, flags.KubeAPIQPS, flags.KubeAPIBurst)
 		if err != nil {
 			return errorf("build runners for scenario %q: %w", scenario.Name, err)
 		}

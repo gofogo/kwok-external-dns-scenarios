@@ -2,6 +2,33 @@
 
 All notable changes to the KWOK benchmarking tool are documented here.
 
+## [0.5.0] - 2026-03-29
+
+### Added
+- `kube-api-qps` / `kube-api-burst` config fields (and `--kube-api-qps` / `--kube-api-burst` flags):
+  rate-limiter settings for all Kubernetes API clients. `0` (default) falls back to client-go
+  built-in defaults (5 QPS / 10 burst). Replaces the CRD-only `crd-client-qps`/`crd-client-burst`.
+- `fork-external-dns`: `--kube-api-qps` / `--kube-api-burst` flags and `KubeAPIQPS`/`KubeAPIBurst`
+  fields on `externaldns.Config` and `source.Config`; applied in `InstrumentedRESTConfig` so all
+  sources (service, ingress, CRD, etc.) share the same rate-limiter setting.
+- `fork-external-dns`: `init()` in `source/crd.go` calls `crlog.SetLogger(logr.Discard())` to
+  silence the controller-runtime `log.SetLogger was never called` warning.
+
+### Fixed
+- `[controller-runtime] log.SetLogger(...) was never called; logs will not be displayed` warning
+  printed on every benchmark run. controller-runtime's internal logs are noise alongside logrus;
+  silenced globally with `logr.Discard()`.
+
+### Changed
+- `crd-client-qps` / `crd-client-burst` renamed to `kube-api-qps` / `kube-api-burst`; scope
+  widened from CRD source only to all Kubernetes API clients. Update `bench.yaml` accordingly.
+- `fork-external-dns`: `KubeClient()` in `SingletonClientGenerator` now routes through
+  `RESTConfig()` instead of calling `InstrumentedRESTConfig` independently, so QPS/burst and
+  transport instrumentation are applied consistently from a single config.
+- `fork-external-dns`: `NewKubeClient` helper removed (unused after `KubeClient()` refactor).
+- `fork-external-dns`: `InstrumentedRESTConfig` gains `qps float32, burst int` parameters;
+  `FlagBinder` interface gains `Float32Var` (implemented by `KingpinBinder`).
+
 ## [0.4.0] - 2026-03-29
 
 ### Added

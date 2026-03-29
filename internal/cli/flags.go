@@ -26,8 +26,8 @@ type Flags struct {
 	JitterMs         int
 	WaitAttempts     int
 	Concurrency      int
-	CRDClientQPS     float32
-	CRDClientBurst   int
+	KubeAPIQPS     float32
+	KubeAPIBurst   int
 	SaveResults      bool
 	ConfigFile       string
 }
@@ -60,8 +60,8 @@ func MustParse(args []string) (Flags, config.Config) {
 	jitterMs       := fs.Int("jitter-ms", cfg.JitterMsInt(), "latency jitter added on top of latency-ms; same format")
 	waitAttempts   := fs.Int("wait-attempts", cfg.WaitAttempts, "max attempts when polling for API server readiness (2s between each)")
 	concurrency    := fs.Int("concurrency", cfg.Concurrency, "number of concurrent API requests during fixture creation")
-	crdQPS         := fs.Float64("crd-client-qps", float64(cfg.CRDClientQPS), "QPS for the CRD REST client used by CRDSource (controls UpdateStatus call rate)")
-	crdBurst       := fs.Int("crd-client-burst", cfg.CRDClientBurst, "burst for the CRD REST client used by CRDSource")
+	kubeAPIQPS     := fs.Float64("kube-api-qps", float64(cfg.KubeAPIQPS), "QPS for Kubernetes API clients; accepts fractional values (e.g. 0.5). 0 means use client-go built-in default (5 QPS)")
+	kubeAPIBurst   := fs.Int("kube-api-burst", cfg.KubeAPIBurst, "burst for Kubernetes API clients. 0 means use client-go built-in default (10 burst)")
 	saveResults    := fs.Bool("save-results", cfg.SaveResults, "append machine-readable results to <cluster-name>-results.txt after each scenario")
 	fs.Parse(args) //nolint:errcheck // ExitOnError handles errors
 
@@ -80,8 +80,8 @@ func MustParse(args []string) (Flags, config.Config) {
 		JitterMs:       *jitterMs,
 		WaitAttempts:   *waitAttempts,
 		Concurrency:    *concurrency,
-		CRDClientQPS:   float32(*crdQPS),
-		CRDClientBurst: *crdBurst,
+		KubeAPIQPS:   float32(*kubeAPIQPS),
+		KubeAPIBurst: *kubeAPIBurst,
 		SaveResults:    *saveResults,
 		ConfigFile:     configFile,
 	}

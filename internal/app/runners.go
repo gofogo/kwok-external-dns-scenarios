@@ -22,8 +22,8 @@ func runnersForScenario(
 	directCfg *rest.Config,
 	kubeconfigPath string,
 	concurrency int,
-	crdClientQPS float32,
-	crdClientBurst int,
+	kubeAPIQPS float32,
+	kubeAPIBurst int,
 ) ([]runner.SourceRunner, error) {
 	r := s.Resources
 	switch s.Source {
@@ -45,11 +45,11 @@ func runnersForScenario(
 		return []runner.SourceRunner{pr}, nil
 	case config.SourceDNSEndpoint:
 		ep, err := runner.NewDNSEndpointRunner(benchKubeClient, directCfg, concurrency, runner.DNSEndpointConfig{
-			NEndpoints:  r.DNSEndpoints.Count,
-			NsDist:      r.DNSEndpoints.Distribution.Namespaces,
-			ClientQPS:   crdClientQPS,
-			ClientBurst: crdClientBurst,
-			BenchCfg:    benchCfg,
+			NEndpoints: r.DNSEndpoints.Count,
+			NsDist:     r.DNSEndpoints.Distribution.Namespaces,
+			BenchCfg:   benchCfg,
+			KubeAPIQPS: kubeAPIQPS,
+			KubeAPIBurst: kubeAPIBurst,
 		})
 		if err != nil {
 			return nil, err

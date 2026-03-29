@@ -34,10 +34,10 @@ type DNSEndpointConfig struct {
 	NEndpoints int
 	// NsDist distributes endpoints across namespaces by weight; nil = all in default.
 	NsDist distribute.Weights
-	// ClientQPS and ClientBurst control the CRD REST client rate limiter.
-	// Defaults to kube defaults (5/10) when zero.
-	ClientQPS   float32
-	ClientBurst int
+	// KubeAPIQPS and KubeAPIBurst control the Kubernetes API client rate limiter.
+	// 0 means use client-go built-in defaults (5 QPS / 10 burst).
+	KubeAPIQPS   float32
+	KubeAPIBurst int
 	// BenchCfg is the benchmark REST config (proxy endpoint + counting transport).
 	// It is copied and used as-is for the CRD source so all CRD calls go through
 	// toxiproxy and are counted alongside other benchmark traffic.
@@ -56,15 +56,13 @@ func NewDNSEndpointRunner(
 	}
 
 	// Copy benchCfg so the CRD source uses the same proxy endpoint and counting
-	// transport as all other benchmark clients. Apply explicit QPS/Burst on top.
+	// transport as all other benchmark clients.
 	crdRestCfg := rest.CopyConfig(cfg.BenchCfg)
-	if cfg.ClientQPS > 0 {
-		crdRestCfg.QPS = cfg.ClientQPS
-		crdRestCfg.Burst = cfg.ClientBurst
-	}
 
 	srcCfg := &source.Config{
-		LabelFilter: labels.Everything(),
+		LabelFilter:  labels.Everything(),
+		KubeAPIQPS:   cfg.KubeAPIQPS,
+		KubeAPIBurst: cfg.KubeAPIBurst,
 	}
 
 	return &DNSEndpointRunner{

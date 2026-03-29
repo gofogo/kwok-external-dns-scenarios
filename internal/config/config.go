@@ -145,8 +145,8 @@ type Config struct {
 	JitterMs       millis        `json:"jitter-ms"`
 	WaitAttempts   int           `json:"wait-attempts"`
 	Concurrency    int           `json:"concurrency"`
-	CRDClientQPS   float32       `json:"crd-client-qps"`
-	CRDClientBurst int           `json:"crd-client-burst"`
+	KubeAPIQPS     float32       `json:"kube-api-qps"`
+	KubeAPIBurst   int           `json:"kube-api-burst"`
 	SaveResults    bool          `json:"save-results"`
 }
 
@@ -168,8 +168,8 @@ func DefaultConfig() Config {
 		ClusterName:    "ext-dns-bench",
 		WaitAttempts:   10,
 		Concurrency:    100,
-		CRDClientQPS:   5,
-		CRDClientBurst: 10,
+		KubeAPIQPS:   0,
+		KubeAPIBurst: 0,
 		Metrics:      MetricsConfig{Enabled: false, URL: "http://localhost:7979/metrics"},
 		Scenarios: []Scenario{
 			{

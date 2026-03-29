@@ -35,10 +35,10 @@ cleanup:
 # Artificial API server latency injected via embedded toxiproxy.
 # Accepts plain milliseconds (50) or a duration string (50ms, 1s).
 # Set to 0 to disable. Highlights the old List() call penalty vs cached indexer.
-latency-ms: 500ms
+latency-ms: 50ms
 
 # Jitter added on top of latency-ms (random ± value). Same format as latency-ms.
-jitter-ms: 100ms
+jitter-ms: 10ms
 
 # Max number of attempts when polling for API server readiness after cluster creation.
 # Each attempt waits 2s; first half uses /readyz probe, second half uses cluster-info.
@@ -48,12 +48,11 @@ wait-attempts: 10
 # Higher values speed up setup but increase API server load.
 concurrency: 300
 
-# Rate limiter settings for the CRD REST client used by CRDSource (dnsendpoint scenarios).
-# CRDSource calls UpdateStatus on every endpoint in each Endpoints() call; with many endpoints
-# the default kube values (5 QPS / 10 burst) stall the benchmark. Raise these when running
-# large dnsendpoint scenarios.
-crd-client-qps: 5
-crd-client-burst: 10
+# Rate limiter settings for Kubernetes API clients. Applies to all sources.
+# 0 means use client-go built-in defaults (5 QPS / 10 burst).
+# Raise for large dnsendpoint scenarios where UpdateStatus calls on many endpoints stall the benchmark.
+kube-api-qps: 30
+kube-api-burst: 50
 
 # In-process Prometheus metrics server and per-iteration scraping.
 metrics:
@@ -189,7 +188,7 @@ scenarios:
     description: Minimal CRD source fixture set — DNSEndpoint objects as DNS sources
     source: dnsendpoint
     default: true
-    iterations: 20
+    iterations: 5
     resources:
       dnsendpoints:
         count: 300
