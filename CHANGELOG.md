@@ -2,6 +2,13 @@
 
 All notable changes to the KWOK benchmarking tool are documented here.
 
+## [0.5.1] - 2026-03-29
+
+### Changed
+- `runnersForScenario` signature simplified: shared cluster state extracted into `RunnerEnv`
+  struct (`BenchKubeClient`, `BenchIstioClient`, `BenchCfg`, `DirectCfg`, `Concurrency`,
+  `KubeAPIQPS`, `KubeAPIBurst`), replacing eight positional parameters.
+
 ## [0.5.0] - 2026-03-29
 
 ### Added
