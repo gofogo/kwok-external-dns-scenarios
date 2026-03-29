@@ -2,6 +2,21 @@
 
 All notable changes to the KWOK benchmarking tool are documented here.
 
+## [0.5.3] - 2026-03-29
+
+### Changed
+- `RunnerEnv` gains `KubeconfigPath string` field (omitted from 0.5.1); passed through to
+  `DNSEndpointConfig` so `InstrumentedRESTConfig` can locate cluster credentials.
+- controller-runtime logger silenced in `main.go` `init()`, not in `source/crd.go` (clarification
+  of 0.5.0): benchmark-specific concern kept out of the fork.
+
+## [0.5.2] - 2026-03-29
+
+### Fixed
+- `make kwok-bench` silently used the local fork (`go.work` was auto-detected by Go). Fixed by
+  setting `GOWORK=off` so `kwok-bench` runs against the pinned `go.mod` version. Use
+  `kwok-bench-local` to develop against the local fork.
+
 ## [0.5.1] - 2026-03-29
 
 ### Changed

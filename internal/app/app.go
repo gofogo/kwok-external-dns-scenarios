@@ -173,6 +173,7 @@ func Run(ctx context.Context, flags cli.Flags, cfg config.Config) error {
 			BenchIstioClient: benchIstioClient,
 			BenchCfg:         benchCfg,
 			DirectCfg:        directCfg,
+			KubeconfigPath:   kubeconfigPath,
 			Concurrency:      flags.Concurrency,
 			KubeAPIQPS:       flags.KubeAPIQPS,
 			KubeAPIBurst:     flags.KubeAPIBurst,

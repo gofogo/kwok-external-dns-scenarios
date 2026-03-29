@@ -52,7 +52,7 @@ concurrency: 300
 # 0 means use client-go built-in defaults (5 QPS / 10 burst).
 # Raise for large dnsendpoint scenarios where UpdateStatus calls on many endpoints stall the benchmark.
 kube-api-qps: 30
-kube-api-burst: 50
+kube-api-burst: 80
 
 # In-process Prometheus metrics server and per-iteration scraping.
 metrics:
@@ -191,7 +191,7 @@ scenarios:
     iterations: 5
     resources:
       dnsendpoints:
-        count: 300
+        count: 3000
         distribution:
           namespaces:
             dev: 10

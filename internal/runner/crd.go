@@ -3,11 +3,13 @@ package runner
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	kubeclient "sigs.k8s.io/external-dns/pkg/client"
 	"sigs.k8s.io/external-dns/source"
 
 	"github.com/kubernetes-sigs-issues/iac/kwok/internal/distribute"
@@ -15,9 +17,9 @@ import (
 )
 
 // DNSEndpointRunner benchmarks source.NewCRDSource (kind: DNSEndpoint).
-// crdRestCfg is built once at construction: it connects directly to the API
-// server (not through the proxy) but wraps the transport with the shared
-// counting transport so all CRD calls appear in the benchmark breakdown.
+// crdRestCfg is built via InstrumentedRESTConfig (same path as external-dns) so it
+// carries Prometheus transport instrumentation. The benchmark counting transport and
+// proxy settings from benchCfg are then layered on top.
 type DNSEndpointRunner struct {
 	kubeClient      kubernetes.Interface
 	directDynClient dynamic.Interface
@@ -38,9 +40,12 @@ type DNSEndpointConfig struct {
 	// 0 means use client-go built-in defaults (5 QPS / 10 burst).
 	KubeAPIQPS   float32
 	KubeAPIBurst int
+	// KubeconfigPath is the path to the kubeconfig used to load cluster credentials
+	// for InstrumentedRESTConfig.
+	KubeconfigPath string
 	// BenchCfg is the benchmark REST config (proxy endpoint + counting transport).
-	// It is copied and used as-is for the CRD source so all CRD calls go through
-	// toxiproxy and are counted alongside other benchmark traffic.
+	// Its Host, TLS settings, and WrapTransport are applied on top of the instrumented
+	// config so all CRD calls go through toxiproxy and the counting transport.
 	BenchCfg *rest.Config
 }
 
@@ -55,21 +60,28 @@ func NewDNSEndpointRunner(
 		return nil, fmt.Errorf("dnsendpoint runner: build dynamic client: %w", err)
 	}
 
-	// Copy benchCfg so the CRD source uses the same proxy endpoint and counting
-	// transport as all other benchmark clients.
-	crdRestCfg := rest.CopyConfig(cfg.BenchCfg)
-
-	srcCfg := &source.Config{
-		LabelFilter:  labels.Everything(),
-		KubeAPIQPS:   cfg.KubeAPIQPS,
-		KubeAPIBurst: cfg.KubeAPIBurst,
+	// Build via InstrumentedRESTConfig — same instrumentation path as external-dns —
+	// pointing at the benchmark proxy endpoint so all CRD calls go through toxiproxy.
+	crdRestCfg, err := kubeclient.InstrumentedRESTConfig(
+		cfg.KubeconfigPath, cfg.BenchCfg.Host, 0, cfg.KubeAPIQPS, cfg.KubeAPIBurst,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("dnsendpoint runner: instrument rest config: %w", err)
+	}
+	// Copy TLS settings from benchCfg (insecure when proxy is active).
+	crdRestCfg.TLSClientConfig = cfg.BenchCfg.TLSClientConfig
+	// Chain the counting transport on top of the Prometheus instrumentation.
+	instrumentedWrap := crdRestCfg.WrapTransport
+	countingWrap := cfg.BenchCfg.WrapTransport
+	crdRestCfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		return countingWrap(instrumentedWrap(rt))
 	}
 
 	return &DNSEndpointRunner{
 		kubeClient:      benchKubeClient,
 		directDynClient: dynClient,
 		crdRestCfg:      crdRestCfg,
-		crdCfg:          srcCfg,
+		crdCfg:          &source.Config{LabelFilter: labels.Everything()},
 		nEndpoints:      cfg.NEndpoints,
 		nsDist:          cfg.NsDist,
 		concurrency:     concurrency,

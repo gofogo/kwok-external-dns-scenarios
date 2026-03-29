@@ -18,6 +18,7 @@ type RunnerEnv struct {
 	BenchIstioClient istioclient.Interface
 	BenchCfg         *rest.Config
 	DirectCfg        *rest.Config
+	KubeconfigPath   string
 	Concurrency      int
 	KubeAPIQPS       float32
 	KubeAPIBurst     int
@@ -47,11 +48,12 @@ func runnersForScenario(s config.Scenario, env RunnerEnv) ([]runner.SourceRunner
 		return []runner.SourceRunner{pr}, nil
 	case config.SourceDNSEndpoint:
 		ep, err := runner.NewDNSEndpointRunner(env.BenchKubeClient, env.DirectCfg, env.Concurrency, runner.DNSEndpointConfig{
-			NEndpoints:   r.DNSEndpoints.Count,
-			NsDist:       r.DNSEndpoints.Distribution.Namespaces,
-			BenchCfg:     env.BenchCfg,
-			KubeAPIQPS:   env.KubeAPIQPS,
-			KubeAPIBurst: env.KubeAPIBurst,
+			NEndpoints:     r.DNSEndpoints.Count,
+			NsDist:         r.DNSEndpoints.Distribution.Namespaces,
+			BenchCfg:       env.BenchCfg,
+			KubeconfigPath: env.KubeconfigPath,
+			KubeAPIQPS:     env.KubeAPIQPS,
+			KubeAPIBurst:   env.KubeAPIBurst,
 		})
 		if err != nil {
 			return nil, err

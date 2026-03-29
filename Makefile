@@ -22,8 +22,8 @@ hooks-validate: ## Validate files with pre-commit hooks
 	@pre-commit run --all-files
 
 .PHONY: kwok-bench
-kwok-bench: ## Run KWOK benchmark with bench.yaml config
-	@go run . --config bench.yaml
+kwok-bench: ## Run KWOK benchmark against pinned go.mod version (disables go.work)
+	@GOWORK=off go run . --config bench.yaml
 
 .PHONY: kwok-bench-local
 kwok-bench-local: ## Run KWOK benchmark using local fork-external-dns (go.work)
