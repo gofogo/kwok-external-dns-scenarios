@@ -44,7 +44,13 @@ func runnersForScenario(
 		}
 		return []runner.SourceRunner{pr}, nil
 	case config.SourceDNSEndpoint:
-		ep, err := runner.NewDNSEndpointRunner(benchKubeClient, kubeconfigPath, directCfg, r.DNSEndpoints.Count, concurrency, r.DNSEndpoints.Distribution.Namespaces, crdClientQPS, crdClientBurst, benchCfg.WrapTransport)
+		ep, err := runner.NewDNSEndpointRunner(benchKubeClient, directCfg, concurrency, runner.DNSEndpointConfig{
+			NEndpoints:  r.DNSEndpoints.Count,
+			NsDist:      r.DNSEndpoints.Distribution.Namespaces,
+			ClientQPS:   crdClientQPS,
+			ClientBurst: crdClientBurst,
+			BenchCfg:    benchCfg,
+		})
 		if err != nil {
 			return nil, err
 		}

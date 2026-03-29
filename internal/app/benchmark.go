@@ -82,7 +82,7 @@ func runSourceBenchmark(
 		return report.SourceStats{}, fmt.Errorf("[%s] create source: %w", sr.Label(), err)
 	}
 	setupBreakdown := apiCounter.CallWindow(setupIdx)
-	log.Printf("        → synced in %v", time.Since(t0).Round(time.Millisecond))
+	log.Printf("        → source ready (informer cache synced) in %v", time.Since(t0).Round(time.Millisecond))
 
 	// Baseline Prometheus snapshot before the warmup call.
 	var initSnap metrics.Sample

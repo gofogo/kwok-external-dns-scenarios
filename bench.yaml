@@ -29,7 +29,7 @@ save-results: false
 # Set to true to delete the cluster after the benchmark completes.
 # Note: skip-setup: false creates the cluster on each run (idempotent); cleanup: false keeps it alive after the run.
 cleanup:
-  enabled: false
+  enabled: true
   onError: false  # Set to true to delete the cluster even if the benchmark encounters an error.
 
 # Artificial API server latency injected via embedded toxiproxy.
@@ -189,7 +189,7 @@ scenarios:
     description: Minimal CRD source fixture set — DNSEndpoint objects as DNS sources
     source: dnsendpoint
     default: true
-    iterations: 5
+    iterations: 20
     resources:
       dnsendpoints:
         count: 300

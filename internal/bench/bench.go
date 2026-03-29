@@ -44,7 +44,7 @@ type Runner struct {
 // NewRunner creates a Runner and starts the progress bar for totalIters iterations.
 func NewRunner(label string, totalIters int, apiCounter *atomic.Int64) *Runner {
 	return &Runner{
-		bar:        progress.New(label, totalIters),
+		bar:        progress.New(label+" (iter)", totalIters),
 		wallStart:  time.Now(),
 		apiCounter: apiCounter,
 		startReqs:  snapshotCounter(apiCounter),

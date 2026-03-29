@@ -2,30 +2,35 @@
 
 All notable changes to the KWOK benchmarking tool are documented here.
 
-## [Unreleased]
+## [0.4.0] - 2026-03-29
 
 ### Added
 - `warmup-timeout` config field (and `--warmup-timeout` flag): bounds the first `Endpoints()` call;
-  defaults to `0` (no timeout). Prevents the benchmark from hanging when the CRD source is slow
-  on its initial call.
+  defaults to `0` (no timeout). Prevents the benchmark from hanging when the CRD source stalls on
+  its initial call.
 - `crd-client-qps` / `crd-client-burst` config fields (and matching flags): explicit rate-limiter
-  settings for the CRD REST client used by `CRDSource`. Defaults match kube defaults (5 QPS / 10
-  burst); raise for large `dnsendpoint` scenarios to avoid stalling on `UpdateStatus` calls.
-- `fork-external-dns`: `source.Config.CRDClientQPS`, `CRDClientBurst`, `CRDClientWrapTransport`
-  fields; `NewCRDClientForAPIVersionKind` applies them when building the REST client so the
-  benchmark counting transport covers all CRD API calls.
+  settings for the CRD REST client. Defaults match kube defaults (5 QPS / 10 burst); raise for
+  large `dnsendpoint` scenarios to avoid stalling on `UpdateStatus` calls.
+- `DNSEndpointConfig` struct in `internal/runner/crd.go`: groups CRD-runner-specific settings
+  (`NEndpoints`, `NsDist`, `ClientQPS`, `ClientBurst`, `BenchCfg`) replacing the positional
+  parameter list on `NewDNSEndpointRunner`.
 
 ### Fixed
-- CRD source API calls (LIST + `UpdateStatus`) were not tracked by the benchmark counter because
-  `NewCRDClientForAPIVersionKind` builds its own REST config from the kubeconfig, bypassing
-  `benchCfg`'s `CountingTransport`. Fixed by threading `benchCfg.WrapTransport` through to the
-  CRD client via the new `CRDClientWrapTransport` field.
-- First `Endpoints()` call on large `dnsendpoint` scenarios appeared frozen: `CRDSource` calls
-  `UpdateStatus` on every endpoint (to sync `ObservedGeneration`), and the default 5 QPS limiter
-  serialised thousands of PUTs. Addressed by exposing `crd-client-qps`/`crd-client-burst` and the
-  warmup timeout.
+- CRD source API calls (informer LIST/WATCH + `UpdateStatus`) were not tracked by the benchmark
+  counter. Fixed by passing `rest.CopyConfig(benchCfg)` as the base config for the CRD source so
+  it inherits both the toxiproxy endpoint and the `CountingTransport` wrap hook.
+- `CountingTransport` had a shared `Base http.RoundTripper` field causing a data race when multiple
+  clients used the same instance. Replaced with a `WrapTransport()` method returning a per-client
+  `delegatingTransport` closure; all clients share the same atomic counter safely.
+- First `Endpoints()` call on large `dnsendpoint` scenarios appeared frozen: the CRD source calls
+  `UpdateStatus` on every fresh endpoint, and the default 5 QPS limiter serialised thousands of
+  PUTs. Addressed by exposing `crd-client-qps`/`crd-client-burst` and adding `warmup-timeout`.
 
 ### Changed
+- `fork-external-dns` CRD source migrated to controller-runtime cache. `NewCRDSource` signature
+  changed to `(ctx context.Context, restConfig *rest.Config, cfg *Config)`. `Endpoints()` now
+  reads from an in-memory cache (zero API calls per iteration); `UpdateStatus` still goes through
+  a direct client. `go.mod` pinned to fork commit `ea4d2d16`.
 - `bench.yaml` `distribution` is now a named-axis map rather than a flat weight map.
   All resource types (`services`, `pods`, `dnsendpoints`) use the same struct form:
   ```yaml
@@ -46,8 +51,10 @@ All notable changes to the KWOK benchmarking tool are documented here.
 - `internal/fixtures/dnsendpoint`: `DNSEndpointFixture` gains `KubeClient` and `NsDist` fields;
   endpoints are distributed across namespaces when `NsDist` is set, with namespaces created
   automatically via `helpers.EnsureNamespace`.
-- `internal/runner/crd.go`: `NewDNSEndpointRunner` accepts a `nsDist distribute.Weights`
-  parameter and threads it through to the fixture.
+- Progress bar label renamed from `"<source>"` to `"<source> (iter)"` to clarify it counts
+  benchmark iterations, not resources.
+- Source-ready log message changed from `"synced in %v"` to
+  `"source ready (informer cache synced) in %v"` for clarity.
 
 ## [0.3.0] - 2026-03-25
 

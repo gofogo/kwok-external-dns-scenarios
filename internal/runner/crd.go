@@ -3,10 +3,8 @@ package runner
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -17,54 +15,65 @@ import (
 )
 
 // DNSEndpointRunner benchmarks source.NewCRDSource (kind: DNSEndpoint).
-// The CRD REST client is built once at construction to avoid a kubeconfig
-// disk read and discovery API call on every NewSource invocation.
+// crdRestCfg is built once at construction: it connects directly to the API
+// server (not through the proxy) but wraps the transport with the shared
+// counting transport so all CRD calls appear in the benchmark breakdown.
 type DNSEndpointRunner struct {
 	kubeClient      kubernetes.Interface
 	directDynClient dynamic.Interface
-	crdClient       rest.Interface
-	crdScheme       *runtime.Scheme
+	crdRestCfg      *rest.Config
 	crdCfg          *source.Config
 	nEndpoints      int
 	nsDist          distribute.Weights
 	concurrency     int
 }
 
+// DNSEndpointConfig holds the CRD-source-specific settings for DNSEndpointRunner.
+type DNSEndpointConfig struct {
+	// NEndpoints is the total number of DNSEndpoint objects to create and benchmark.
+	NEndpoints int
+	// NsDist distributes endpoints across namespaces by weight; nil = all in default.
+	NsDist distribute.Weights
+	// ClientQPS and ClientBurst control the CRD REST client rate limiter.
+	// Defaults to kube defaults (5/10) when zero.
+	ClientQPS   float32
+	ClientBurst int
+	// BenchCfg is the benchmark REST config (proxy endpoint + counting transport).
+	// It is copied and used as-is for the CRD source so all CRD calls go through
+	// toxiproxy and are counted alongside other benchmark traffic.
+	BenchCfg *rest.Config
+}
+
 func NewDNSEndpointRunner(
 	benchKubeClient kubernetes.Interface,
-	kubeconfigPath string,
 	directCfg *rest.Config,
-	nEndpoints, concurrency int,
-	nsDist distribute.Weights,
-	crdClientQPS float32,
-	crdClientBurst int,
-	wrapTransport func(http.RoundTripper) http.RoundTripper,
+	concurrency int,
+	cfg DNSEndpointConfig,
 ) (*DNSEndpointRunner, error) {
 	dynClient, err := dynamic.NewForConfig(directCfg)
 	if err != nil {
 		return nil, fmt.Errorf("dnsendpoint runner: build dynamic client: %w", err)
 	}
-	cfg := &source.Config{
-		KubeConfig:             kubeconfigPath,
-		CRDSourceAPIVersion:    "externaldns.k8s.io/v1alpha1",
-		CRDSourceKind:          "DNSEndpoint",
-		LabelFilter:            labels.Everything(),
-		CRDClientQPS:           crdClientQPS,
-		CRDClientBurst:         crdClientBurst,
-		CRDClientWrapTransport: wrapTransport,
+
+	// Copy benchCfg so the CRD source uses the same proxy endpoint and counting
+	// transport as all other benchmark clients. Apply explicit QPS/Burst on top.
+	crdRestCfg := rest.CopyConfig(cfg.BenchCfg)
+	if cfg.ClientQPS > 0 {
+		crdRestCfg.QPS = cfg.ClientQPS
+		crdRestCfg.Burst = cfg.ClientBurst
 	}
-	crdClient, scheme, err := source.NewCRDClientForAPIVersionKind(benchKubeClient, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("dnsendpoint runner: build CRD client: %w", err)
+
+	srcCfg := &source.Config{
+		LabelFilter: labels.Everything(),
 	}
+
 	return &DNSEndpointRunner{
 		kubeClient:      benchKubeClient,
 		directDynClient: dynClient,
-		crdClient:       crdClient,
-		crdScheme:       scheme,
-		crdCfg:          cfg,
-		nEndpoints:      nEndpoints,
-		nsDist:          nsDist,
+		crdRestCfg:      crdRestCfg,
+		crdCfg:          srcCfg,
+		nEndpoints:      cfg.NEndpoints,
+		nsDist:          cfg.NsDist,
 		concurrency:     concurrency,
 	}, nil
 }
@@ -83,5 +92,5 @@ func (r *DNSEndpointRunner) Setup(ctx context.Context) error {
 }
 
 func (r *DNSEndpointRunner) NewSource(ctx context.Context) (source.Source, error) {
-	return source.NewCRDSource(r.crdClient, r.crdCfg, r.crdScheme)
+	return source.NewCRDSource(ctx, r.crdRestCfg, r.crdCfg)
 }

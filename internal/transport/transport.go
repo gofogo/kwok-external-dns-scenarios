@@ -18,10 +18,10 @@ type callRecord struct {
 	durations []time.Duration
 }
 
-// CountingTransport wraps an http.RoundTripper, counts every request made, and
-// records per-call durations broken down by normalized method + API path.
+// CountingTransport aggregates HTTP request counts and per-call durations broken
+// down by normalized method + API path. It is not itself an http.RoundTripper;
+// use WrapTransport to obtain a per-client wrapper that records into this counter.
 type CountingTransport struct {
-	Base  http.RoundTripper
 	Count atomic.Int64
 	calls sync.Map // string → *callRecord
 }
@@ -31,11 +31,17 @@ func NewCountingTransport() *CountingTransport {
 	return &CountingTransport{}
 }
 
-func (t *CountingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	start := time.Now()
-	resp, err := t.Base.RoundTrip(req)
-	elapsed := time.Since(start)
+// WrapTransport returns a rest.Config-compatible WrapTransport function.
+// Each call to the returned function creates an independent per-client
+// http.RoundTripper that records into this counter, so multiple clients can
+// share one CountingTransport without racing on a shared Base field.
+func (t *CountingTransport) WrapTransport() func(http.RoundTripper) http.RoundTripper {
+	return func(base http.RoundTripper) http.RoundTripper {
+		return &delegatingTransport{base: base, ct: t}
+	}
+}
 
+func (t *CountingTransport) record(req *http.Request, elapsed time.Duration) {
 	t.Count.Add(1)
 	key := requestKey(req)
 	v, _ := t.calls.LoadOrStore(key, &callRecord{})
@@ -43,6 +49,19 @@ func (t *CountingTransport) RoundTrip(req *http.Request) (*http.Response, error)
 	cr.mu.Lock()
 	cr.durations = append(cr.durations, elapsed)
 	cr.mu.Unlock()
+}
+
+// delegatingTransport is a per-client http.RoundTripper that records all
+// requests into a shared CountingTransport without mutating a shared Base field.
+type delegatingTransport struct {
+	base http.RoundTripper
+	ct   *CountingTransport
+}
+
+func (d *delegatingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	start := time.Now()
+	resp, err := d.base.RoundTrip(req)
+	d.ct.record(req, time.Since(start))
 	return resp, err
 }
 

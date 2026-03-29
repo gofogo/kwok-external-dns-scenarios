@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"time"
 
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
@@ -122,10 +121,7 @@ func Run(ctx context.Context, flags cli.Flags, cfg config.Config) error {
 		log.Printf("        → proxy endpoint: %s", benchCfg.Host)
 	}
 	apiCounter := transport.NewCountingTransport()
-	benchCfg.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
-		apiCounter.Base = rt
-		return apiCounter
-	}
+	benchCfg.WrapTransport = apiCounter.WrapTransport()
 
 	next("creating benchmark Kubernetes client")
 	benchKubeClient, err := kubernetes.NewForConfig(benchCfg)
