@@ -82,7 +82,8 @@ func runSourceBenchmark(
 		return report.SourceStats{}, fmt.Errorf("[%s] create source: %w", sr.Label(), err)
 	}
 	setupBreakdown := apiCounter.CallWindow(setupIdx)
-	log.Printf("        → source ready (informer cache synced) in %v", time.Since(t0).Round(time.Millisecond))
+	setupDuration := time.Since(t0).Round(time.Millisecond)
+	log.Printf("        → source ready (informer cache synced) in %v", setupDuration)
 
 	// Baseline Prometheus snapshot before the warmup call.
 	var initSnap metrics.Sample
@@ -146,6 +147,7 @@ func runSourceBenchmark(
 		Deltas:          obs.deltas,
 		SourceCount:     sr.ResourceCount(),
 		EndpointCount:   endpointCount,
+		SetupDuration:   setupDuration,
 		SetupBreakdown:  setupBreakdown,
 		WarmupBreakdown: warmupBreakdown,
 		IterBreakdowns:  obs.iterBreakdowns,

@@ -29,7 +29,12 @@ kwok-bench: ## Run KWOK benchmark against pinned go.mod version (disables go.wor
 kwok-bench-local: ## Run KWOK benchmark using local fork-external-dns (go.work)
 	@GOWORK=$(PWD)/go.work go run . --config bench.yaml
 
+.PHONY: kwok-clean
+kwok-clean: ## Delete all KWOK clusters created by this project
+	@kwokctl get clusters 2>/dev/null | xargs -r -I{} kwokctl delete cluster --name {}
+
 .PHONY: go-deps
 go-deps: ## Install go dependencies
+	@go get sigs.k8s.io/external-dns@latest
 	@go mod tidy
 	@go mod download

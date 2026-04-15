@@ -48,6 +48,7 @@ type SourceStats struct {
 	Deltas          []map[string]float64
 	SourceCount     int // number of source objects benchmarked
 	EndpointCount   int // endpoints returned by the last Endpoints() call
+	SetupDuration   time.Duration          // wall-clock time for source creation (NewSource / informer sync)
 	SetupBreakdown  map[string]CallStats   // kube API calls during source creation (LIST + WATCH)
 	WarmupBreakdown map[string]CallStats   // kube API calls during first Endpoints() call
 	IterBreakdowns  []map[string]CallStats // kube API calls per iteration (iter 1 = warmup, iter 2+ = steady)
@@ -169,7 +170,7 @@ func printStats(src SourceStats, metricsVerbose bool) {
 
 	fmt.Println()
 	fmt.Println("  --- kube api breakdown ---")
-	printCallBreakdown("source setup (before benchmark)", src.SetupBreakdown)
+	printCallBreakdown(fmt.Sprintf("source setup (before benchmark)  total=%v", src.SetupDuration.Round(time.Millisecond)), src.SetupBreakdown)
 	fmt.Println()
 	benchmarkBreakdown := make(map[string]CallStats)
 	for _, bd := range src.IterBreakdowns {

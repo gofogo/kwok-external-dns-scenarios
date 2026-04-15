@@ -153,6 +153,10 @@ scenarios:
           service-type:
             headless: 1    # pods backing headless services (selected via podSvcLabel)
             node-port: 2   # pods co-located on nodes running NodePort services
+          namespaces:
+            dev: 10
+            staging: 5
+            default: 5
     metrics:
       - go_memstats_alloc_bytes
       - go_memstats_heap_objects
@@ -160,11 +164,11 @@ scenarios:
   - name: service-heavy
     description: Production-scale Service source — mix of headless and NodePort services across a large cluster
     source: service
-    default: false
+    default: true
     iterations: 10
     resources:
       services:
-        count: 2600
+        count: 3726
         distribution:
           service-type:
             headless: 1
@@ -173,13 +177,17 @@ scenarios:
             dev: 10
             staging: 5
             default: 5
-      nodes: 3000
+      nodes: 4521
       pods:
-        count: 60000
+        count: 60631
         distribution:
           service-type:
             headless: 1    # pods backing headless services (selected via podSvcLabel)
             node-port: 1   # pods co-located on nodes running NodePort services
+          namespaces:
+            dev: 10
+            staging: 5
+            default: 5
     metrics:
       - go_memstats_alloc_bytes
       - go_memstats_heap_objects
@@ -187,7 +195,7 @@ scenarios:
   - name: dnsendpoint-quick-smoke
     description: Minimal CRD source fixture set — DNSEndpoint objects as DNS sources
     source: dnsendpoint
-    default: true
+    default: false
     iterations: 3
     resources:
       dnsendpoints:
